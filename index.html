@@ -1,0 +1,182 @@
+
+<style type="text/css">
+    html, body, input {
+        background: black;
+        color: white;
+        margin: 0;
+        height: 100%;
+    }
+    
+    canvas {
+        vertical-align: middle;
+    }
+</style>
+<div style="display: flex; height: 100%">
+    <div style="margin: auto; display: flex; flex-flow: column; height: 100%">
+        <span style="margin: auto"><canvas height="500" width="500"></canvas></span>
+    <div>
+</div>
+<script>
+const canvas = document.querySelector('canvas');
+const context = canvas.getContext('2d');
+
+prop = (xi, xa, xb, l) => (xi * xb + (l - xi) * xa) / l;
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+val = async (ca, cb) => {
+    let a = 0;
+    let b = 0;
+    let i;
+    for (i = 0; i < iter; i++){
+        d = a * a - b * b + ca;
+        b = 2 * a * b + cb;
+        a = d;
+        if (a * a + b * b > 4) return i + 1;
+    }
+    return 0;
+}
+
+hx = (v, tx) => v < tx ? v / tx: tx / v;
+mhx = (v, tx) => v / (v + tx);
+</script>
+<script>
+const ww = 500;
+let token = 0;
+let t, bias, aa, ab, ba, bb, iter;
+</script>
+<script>
+probe = (async (g) => {
+    if (g == undefined) return;
+    const log = [];
+    let ai = 0;
+    let bi = 0;
+    const l = g - 1;
+    for (ai = 0; ai < g; ai++)
+    {
+        await sleep(0);
+        const a = prop(ai, aa, ab, l);
+        for (bi = 0; bi < g; bi++)
+        {
+            const v = await val(a, prop(bi, ba, bb, l));
+            if (v) log.push(v);
+        }
+    }
+    if (!log.length) return;
+    log.sort((a, b) => a - b);
+    if (log[log.length - 1] > 0.1 * iter) {
+        iter *= 2;
+        return await probe();
+    }
+    else if (iter > 10 && log[log.length - 1] < 0.0333 * iter) {
+        iter /= 2;
+        return await probe();
+    }
+    bias = log[0] - 1;
+    t = Math.max(20, log[Math.floor(log.length / 2)] - bias);
+})
+</script>
+<script>
+repaint = (async () => {
+token += 1;
+const tk = token;
+const wa = ab - aa;
+const wb = bb - ba;
+const cw = Math.round(ww * Math.sqrt(wa / wb))
+if (canvas.width !== cw) canvas.width = cw;
+const ch = Math.round(ww * Math.sqrt(wb / wa))
+if (canvas.height !== ch) canvas.height = ch;
+for (const g of [[5, 5], [10, 10, true], [20, 20], [50, 50], [100, 100, true], [canvas.width, canvas.height]])
+{
+    if (g[2]) await probe(Math.min(g[0], g[1]));
+    await sleep(0);
+    let ai = 0;
+    let bi = 0;
+    const l = [g[0] - 1, g[1] - 1];
+    const w = [canvas.width / g[0], canvas.height / g[1]] 
+    for (ai = 0; ai < g[0]; ai++)
+    {
+        if (tk !== token) return;
+        await sleep(0);
+        const a = prop(ai, aa, ab, l[0]);
+        for (bi = 0; bi < g[1]; bi++)
+        {
+            const v = Math.max(0, -bias + await val(a, prop(bi, ba, bb, l[1])));
+            const c = `hsl(${360*mhx(v,8*t)},100%,${50*mhx(v,1*t)}%)`;
+            context.fillStyle = c;
+            context.fillRect(prop(ai, 0, canvas.width - w[0], l[0]),
+                prop(bi, 0, canvas.height - w[1],l[1]),w[0],w[1]);
+        }
+    }
+}
+})
+reset = () => {
+t = 50;
+bias = 0;
+aa = -2;
+ab = +2;
+ba = -2;
+bb = +2;
+iter = 1000;
+repaint();
+}
+</script>
+<script>
+reset();
+let qx = undefined;
+let qy = undefined;
+canvas.addEventListener('mousedown', (event) => {
+    event.preventDefault()
+    if (event.button === 3) {t -= 5; repaint(); return;}
+    if (event.button === 4) {t += 5; repaint(); return;}
+    if (event.button !== 0) return;
+    qx = event.offsetX;
+    qy = event.offsetY;
+})
+canvas.addEventListener('mouseup', () => {
+    event.preventDefault()
+    if (event.button !== 0) return;
+    qx = undefined;
+    qy = undefined;
+})
+canvas.addEventListener('mousemove', (event) => {
+    if (event.button !== 0) return;
+    if (qx === undefined || qy === undefined) return;
+    const ka = (ab - aa) / canvas.width;
+    const dx = (event.offsetX - qx) * ka;
+    qx = event.offsetX;
+    aa -= dx;
+    ab -= dx;
+    const kb = (bb - ba) / canvas.height;
+    const dy = (event.offsetY - qy) * kb;
+    qy = event.offsetY;
+    ba -= dy;
+    bb -= dy;
+    repaint();
+});
+canvas.addEventListener('wheel', (event) => {
+    const q = Math.pow(1.05, event.deltaY / 100);
+    const ac = (aa * (canvas.width - event.offsetX) + ab * event.offsetX) / canvas.width;
+    aa = aa * q + ac * (1 - q);
+    ab = ab * q + ac * (1 - q);
+    const bc = (ba * (canvas.height - event.offsetY) + bb * event.offsetY) / canvas.height;
+    ba = ba * q + bc * (1 - q);
+    bb = bb * q + bc * (1 - q);
+    repaint();
+})
+document.body.addEventListener('keydown', (event) => {
+    if (event.key === "PageUp"){
+        event.preventDefault();
+        iter *= 1.2;
+        repaint();
+    }
+    if (event.key === "PageDown"){
+        event.preventDefault();
+        iter /= 1.2;
+        repaint();
+    }
+})
+</script>
+
